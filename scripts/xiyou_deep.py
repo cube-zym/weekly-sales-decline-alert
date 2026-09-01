@@ -5,6 +5,16 @@
 输出: <data_dir>/deep.json  {info:{asin:{...}}, traffic:{asin:{...}}, order:[asins]}
 """
 import json, os, sys, glob, subprocess
+from datetime import date, timedelta
+
+def week_range():
+    """返回 (上上周一, 上周日) 与 (上上周一, 上周日) 的日期字符串——按最近两个完整自然周计算"""
+    today = date.today()
+    this_monday = today - timedelta(days=today.weekday())
+    last_start = this_monday - timedelta(days=7)   # 上周一
+    prev_start = last_start - timedelta(days=7)    # 上上周一
+    last_end = this_monday - timedelta(days=1)     # 上周日
+    return str(prev_start), str(last_end), str(last_start), str(last_end)
 
 def load_cfg():
     cfg = json.load(open(os.path.expanduser('~/.zcode/cli/config.json')))
@@ -40,11 +50,12 @@ def main():
     url, auth = load_cfg()
 
     USER_TASK = "分析上周环比上上周销量下跌的ASIN，深挖跌幅Top原因（价格/评分/流量变化）"
+    prev_start, last_end, last_start, _ = week_range()
     info, traffic = {}, {}
     for a in top_asins:
         try:
             obj = call_tool(url, auth, 'get_asin_info_trends', {
-                'asin': a, 'country': 'US', 'start_date': '2026-08-10', 'end_date': '2026-08-24',
+                'asin': a, 'country': 'US', 'start_date': prev_start, 'end_date': last_end,
                 'user_task': USER_TASK, 'intent_summary': '查询该ASIN两周内价格评分评论数变化'})
             t = obj.get('data', {}).get('trends') or []
             if t:
@@ -57,7 +68,7 @@ def main():
             info[a] = {'error': str(e)}
         try:
             obj = call_tool(url, auth, 'get_asin_traffic_trends_weekly', {
-                'asin': a, 'country': 'US', 'start_week': '2026-08-10', 'end_week': '2026-08-23',
+                'asin': a, 'country': 'US', 'start_week': prev_start, 'end_week': last_end,
                 'user_task': USER_TASK, 'intent_summary': '查询该ASIN近两周自然与广告流量变化'})
             t = obj.get('data', {}).get('trends') or []
             if t:
